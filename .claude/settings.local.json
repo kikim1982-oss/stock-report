@@ -31,7 +31,11 @@
       "Read(//c/tmp/**)",
       "Bash(perl parse_kakao.pl)",
       "Bash(perl:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(OUT=/tmp/dart_00164779 for f in a25c a24c a23c a22c a25o a24o a23o a22o q1c q2c q3c q1o q2o q3o)",
+      "Bash(do echo:*)",
+      "Bash(OUT=/tmp/dart_00164779 echo '=== ANNUAL CFS ===' for f in a25c a24c a23c a22c)",
+      "Bash(OUT=\"/tmp/dart_00164779\")"
     ]
   }
 }
