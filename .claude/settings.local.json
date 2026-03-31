@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(unzip -o /tmp/corpcode.zip -d /tmp/corpcode/)",
+      "Bash(python3:*)",
+      "Bash(node:*)",
+      "Bash(where node:*)",
+      "Bash(\"/c/Program Files/nodejs/node.exe\" -v)",
+      "Bash(\"C:/Program Files/nodejs/node.exe\" -v)",
+      "WebSearch",
+      "WebFetch(domain:comp.fnguide.com)",
+      "WebFetch(domain:dart.fss.or.kr)",
+      "WebFetch(domain:www.m-i.kr)",
+      "WebFetch(domain:www.ezyeconomy.com)",
+      "WebFetch(domain:www.medifonews.com)",
+      "WebFetch(domain:invest.deepsearch.com)",
+      "WebFetch(domain:markets.hankyung.com)",
+      "Bash(\"/c/Program Files \\(x86\\)/nodejs/node.exe\" -v)",
+      "Bash(cmd.exe /c \"node -v\")",
+      "Bash(cmd.exe /c \"where node\")",
+      "Bash(powershell.exe -Command \":*)",
+      "Bash(powershell -Command \"Get-Content /tmp/cfs_2025.json | ConvertFrom-Json | Select-Object -ExpandProperty status\")",
+      "Read(//tmp/**)",
+      "Bash(powershell -Command \"Get-Content ''C:\\\\Users\\\\우진산업 연구소\\\\AppData\\\\Local\\\\Temp\\\\cfs_2025.json'' -ErrorAction SilentlyContinue | Select-Object -First 1\")",
+      "Bash(ls /c/Users/*/AppData/Local/Temp/cfs_2025.json)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:/Users/우진산업 연구소/Downloads/stock_report/dart/parse_samsung.ps1\" 2>&1)",
+      "Bash(grep -r \"account_nm\\\\|account_name\\\\|매출\\\\|결손금\" 'C:\\\\Users\\\\우진산업 연구소\\\\Downloads\\\\stock_report' --include=*.md --include=*.js --include=*.json)",
+      "Bash(node -e \"console.log\\(''ok''\\)\")",
+      "Bash(perl -MJSON::PP -e 'print \"\"JSON::PP ok\\\\n\"\"')",
+      "Read(//c/tmp/**)",
+      "Bash(perl parse_kakao.pl)",
+      "Bash(perl:*)",
+      "Bash(echo:*)"
+    ]
+  }
+}

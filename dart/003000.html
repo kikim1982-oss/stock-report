@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>부광약품 (003000) - 요약재무제표</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a1a2e; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+    .fade-in { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="bg-[#0f0f1a] min-h-screen text-gray-200">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    // ========================================
+    // Design System Components
+    // ========================================
+    function Badge({ children, color = 'indigo', className = '' }) {
+      const colors = {
+        indigo: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30',
+        emerald: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+        amber: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+        red: 'bg-red-500/20 text-red-400 border-red-500/30',
+        gray: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+      };
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors[color]} ${className}`}>
+          {children}
+        </span>
+      );
+    }
+
+    function Card({ children, title, subtitle, className = '', headerRight }) {
+      return (
+        <div className={`bg-[#1a1a2e] rounded-2xl border border-[#2a2a3d] overflow-hidden fade-in ${className}`}>
+          {title && (
+            <div className="px-5 py-4 border-b border-[#2a2a3d] flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-semibold text-base">{title}</h3>
+                {subtitle && <p className="text-gray-500 text-xs mt-0.5">{subtitle}</p>}
+              </div>
+              {headerRight}
+            </div>
+          )}
+          <div className="p-5">{children}</div>
+        </div>
+      );
+    }
+
+    function TabButton({ active, onClick, children }) {
+      return (
+        <button
+          onClick={onClick}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            active
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+              : 'bg-[#1a1a2e] text-gray-400 hover:text-white hover:bg-[#252540]'
+          }`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function StatCard({ label, value, change, unit = '억원' }) {
+      const isNegative = value != null && parseFloat(String(value).replace(/,/g, '')) < 0;
+      return (
+        <div className="bg-[#12121f] rounded-xl p-4 border border-[#2a2a3d]">
+          <div className="text-gray-500 text-xs mb-1">{label}</div>
+          <div className={`mono text-xl font-bold ${isNegative ? 'text-red-400' : 'text-white'}`}>
+            {value}
+            <span className="text-gray-500 text-xs font-normal ml-1">{unit}</span>
+          </div>
+          {change !== undefined && change !== null && (
+            <div className={`text-xs mt-1 ${change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {change >= 0 ? '▲' : '▼'} {Math.abs(change).toFixed(1)}%
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // Data
+    // ========================================
+    const COMPANY = {
+      name: '부광약품',
+      nameEng: 'BUKWANG PHARMACEUTICAL IND CO.,LTD',
+      stockCode: '003000',
+      ceo: '이제영',
+      address: '서울특별시 동작구 대방동1길 47',
+      website: 'www.bukwang.co.kr',
+      industry: '의약품 제조업',
+      established: '1960.10.17',
+      accountMonth: '12월',
+    };
+
+    // ── 연결재무제표 (CFS) 연간 ──
+    const CFS_ANNUAL = {
+      BS: [
+        { name: '유동자산',    y4: '303,200,000,000', y3: '203,739,430,076', y2: '254,178,522,748', y1: '218,741,258,542', indent: 0 },
+        { name: '비유동자산',  y4: '173,100,000,000', y3: '169,440,881,752', y2: '174,838,526,650', y1: '182,187,929,972', indent: 0 },
+        { name: '자산총계',    y4: '476,300,000,000', y3: '373,180,311,828', y2: '429,017,049,398', y1: '400,929,188,514', indent: 0, bold: true },
+        { name: '유동부채',    y4: '117,800,000,000', y3: '35,398,194,086',  y2: '97,544,074,713',  y1: '44,603,055,930', indent: 0 },
+        { name: '비유동부채',  y4: '17,500,000,000',  y3: '93,636,537,678',  y2: '97,208,302,440',  y1: '84,478,676,552', indent: 0 },
+        { name: '부채총계',    y4: '135,400,000,000', y3: '129,034,731,764', y2: '194,752,377,153', y1: '129,081,732,482', indent: 0, bold: true },
+        { name: '자본금',      y4: '51,500,000,000',  y3: '36,401,993,000',  y2: '36,401,993,000',  y1: '36,401,993,000', indent: 0 },
+        { name: '이익잉여금',  y4: '173,400,000,000', y3: '166,822,493,051', y2: '225,783,289,764', y1: '258,584,903,669', indent: 0 },
+        { name: '자본총계',    y4: '340,900,000,000', y3: '244,145,580,064', y2: '234,264,672,245', y1: '271,847,456,032', indent: 0, bold: true },
+      ],
+      IS: [
+        { name: '매출액',             y4: '200,700,000,000', y3: '160,086,870,107', y2: '125,928,240,771', y1: '190,909,364,530', indent: 0 },
+        { name: '영업이익',           y4: '14,200,000,000',  y3: '1,617,661,424',   y2: '-37,496,760,003', y1: '-230,635,598', indent: 0, bold: true },
+        { name: '법인세차감전 순이익', y4: '6,400,000,000',  y3: '-2,969,515,213',  y2: '-39,569,385,995', y1: '-1,032,872,379', indent: 0 },
+        { name: '당기순이익(손실)',    y4: '12,400,000,000',  y3: '-3,458,761,838',  y2: '-34,406,512,167', y1: '-4,248,677,024', indent: 0, bold: true },
+        { name: '총포괄손익',         y4: '135,700,000,000', y3: '9,622,702,309',   y2: '-37,785,452,564', y1: '132,656,206', indent: 0 },
+      ],
+    };
+
+    // ── 별도재무제표 (OFS) 연간 ──
+    const OFS_ANNUAL = {
+      BS: [
+        { name: '유동자산',    y4: '273,700,000,000', y3: '190,617,729,403', y2: '232,285,551,483', y1: '192,376,604,668', indent: 0 },
+        { name: '비유동자산',  y4: '194,300,000,000', y3: '179,462,244,706', y2: '228,250,487,856', y1: '228,235,178,477', indent: 0 },
+        { name: '자산총계',    y4: '468,000,000,000', y3: '370,079,974,109', y2: '460,536,039,339', y1: '420,611,783,145', indent: 0, bold: true },
+        { name: '유동부채',    y4: '110,500,000,000', y3: '33,944,891,577',  y2: '78,225,977,983',  y1: '42,979,199,096', indent: 0 },
+        { name: '비유동부채',  y4: '17,100,000,000',  y3: '93,224,082,111',  y2: '95,585,812,547',  y1: '67,433,978,357', indent: 0 },
+        { name: '부채총계',    y4: '127,600,000,000', y3: '127,168,973,688', y2: '173,811,790,530', y1: '110,413,177,453', indent: 0, bold: true },
+        { name: '자본금',      y4: '51,500,000,000',  y3: '36,401,993,000',  y2: '36,401,993,000',  y1: '36,401,993,000', indent: 0 },
+        { name: '이익잉여금',  y4: '161,900,000,000', y3: '153,518,990,326', y2: '265,448,585,448', y1: '286,010,467,061', indent: 0 },
+        { name: '자본총계',    y4: '340,400,000,000', y3: '242,911,000,421', y2: '286,724,248,809', y1: '310,198,605,692', indent: 0, bold: true },
+      ],
+      IS: [
+        { name: '매출액',             y4: '167,300,000,000', y3: '157,607,296,114', y2: '125,176,189,725', y1: '190,338,986,808', indent: 0 },
+        { name: '영업이익',           y4: '16,100,000,000',  y3: '17,003,886,752',  y2: '-17,172,576,908', y1: '12,322,107,087', indent: 0, bold: true },
+        { name: '법인세차감전 순이익', y4: '8,600,000,000',  y3: '-52,410,142,462', y2: '-23,195,626,752', y1: '6,869,561,444', indent: 0 },
+        { name: '당기순이익(손실)',    y4: '14,400,000,000',  y3: '-55,610,301,483', y2: '-19,092,745,665', y1: '2,041,622,873', indent: 0, bold: true },
+        { name: '총포괄손익',         y4: '97,500,000,000',  y3: '-43,813,248,388', y2: '-23,474,356,883', y1: '5,950,278,768', indent: 0 },
+      ],
+    };
+
+    // ── 연결재무제표 (CFS) 분기 2025 ──
+    const CFS_QUARTERLY = {
+      BS: [
+        { name: '유동자산',    q1: '206,500,000,000', q2: '216,900,000,000', q3: '305,900,000,000', q4: '303,200,000,000', indent: 0 },
+        { name: '비유동자산',  q1: '166,200,000,000', q2: '166,000,000,000', q3: '167,100,000,000', q4: '173,100,000,000', indent: 0 },
+        { name: '자산총계',    q1: '372,600,000,000', q2: '382,900,000,000', q3: '473,000,000,000', q4: '476,300,000,000', indent: 0, bold: true },
+        { name: '유동부채',    q1: '35,200,000,000',  q2: '37,600,000,000',  q3: '66,400,000,000',  q4: '117,800,000,000', indent: 0 },
+        { name: '비유동부채',  q1: '93,700,000,000',  q2: '94,800,000,000',  q3: '65,700,000,000',  q4: '17,500,000,000', indent: 0 },
+        { name: '부채총계',    q1: '128,900,000,000', q2: '132,400,000,000', q3: '132,200,000,000', q4: '135,400,000,000', indent: 0, bold: true },
+        { name: '자본금',      q1: '36,400,000,000',  q2: '36,400,000,000',  q3: '51,500,000,000',  q4: '51,500,000,000', indent: 0 },
+        { name: '이익잉여금',  q1: '166,900,000,000', q2: '173,200,000,000', q3: '174,700,000,000', q4: '173,400,000,000', indent: 0 },
+        { name: '자본총계',    q1: '243,700,000,000', q2: '250,500,000,000', q3: '340,800,000,000', q4: '340,900,000,000', indent: 0, bold: true },
+      ],
+      IS: [
+        { name: '매출액',             q1: '47,800,000,000', q2: '42,600,000,000', q3: '47,800,000,000', q4: '62,500,000,000', indent: 0 },
+        { name: '영업이익',           q1: '3,000,000,000',  q2: '2,000,000,000',  q3: '1,000,000,000',  q4: '8,200,000,000', indent: 0, bold: true },
+        { name: '법인세차감전 순이익', q1: '-300,000,000',  q2: '2,500,000,000',  q3: '1,200,000,000',  q4: '3,000,000,000', indent: 0 },
+        { name: '당기순이익(손실)',    q1: '-100,000,000',   q2: '6,400,000,000',  q3: '1,500,000,000',  q4: '4,700,000,000', indent: 0, bold: true },
+      ],
+    };
+
+    // ── 별도재무제표 (OFS) 분기 2025 ──
+    const OFS_QUARTERLY = {
+      BS: [
+        { name: '유동자산',    q1: '196,000,000,000', q2: '203,900,000,000', q3: '290,700,000,000', q4: '273,700,000,000', indent: 0 },
+        { name: '비유동자산',  q1: '176,200,000,000', q2: '179,400,000,000', q3: '184,600,000,000', q4: '194,300,000,000', indent: 0 },
+        { name: '자산총계',    q1: '372,200,000,000', q2: '383,300,000,000', q3: '475,300,000,000', q4: '468,000,000,000', indent: 0, bold: true },
+        { name: '유동부채',    q1: '33,600,000,000',  q2: '34,900,000,000',  q3: '63,600,000,000',  q4: '110,500,000,000', indent: 0 },
+        { name: '비유동부채',  q1: '93,200,000,000',  q2: '94,400,000,000',  q3: '65,300,000,000',  q4: '17,100,000,000', indent: 0 },
+        { name: '부채총계',    q1: '126,800,000,000', q2: '129,200,000,000', q3: '128,900,000,000', q4: '127,600,000,000', indent: 0, bold: true },
+        { name: '자본금',      q1: '36,400,000,000',  q2: '36,400,000,000',  q3: '51,500,000,000',  q4: '51,500,000,000', indent: 0 },
+        { name: '이익잉여금',  q1: '156,500,000,000', q2: '165,300,000,000', q3: '168,800,000,000', q4: '161,900,000,000', indent: 0 },
+        { name: '자본총계',    q1: '245,400,000,000', q2: '254,100,000,000', q3: '346,400,000,000', q4: '340,400,000,000', indent: 0, bold: true },
+      ],
+      IS: [
+        { name: '매출액',             q1: '43,900,000,000', q2: '37,400,000,000', q3: '41,100,000,000', q4: '44,900,000,000', indent: 0 },
+        { name: '영업이익',           q1: '5,900,000,000',  q2: '4,500,000,000',  q3: '3,300,000,000',  q4: '2,300,000,000', indent: 0, bold: true },
+        { name: '법인세차감전 순이익', q1: '2,600,000,000',  q2: '5,000,000,000',  q3: '3,300,000,000',  q4: '-2,400,000,000', indent: 0 },
+        { name: '당기순이익(손실)',    q1: '2,800,000,000',   q2: '8,900,000,000',  q3: '3,600,000,000',  q4: '-1,000,000,000', indent: 0, bold: true },
+      ],
+    };
+
+    // ── 연간 기간 정보 ──
+    const ANNUAL_PERIODS_BS = [
+      { key: 'y4', label: '제66기 (2025.12)' },
+      { key: 'y3', label: '제65기 (2024.12)' },
+      { key: 'y2', label: '제64기 (2023.12)' },
+      { key: 'y1', label: '제63기 (2022.12)' },
+    ];
+    const ANNUAL_PERIODS_IS = [
+      { key: 'y4', label: '제66기 (2025)' },
+      { key: 'y3', label: '제65기 (2024)' },
+      { key: 'y2', label: '제64기 (2023)' },
+      { key: 'y1', label: '제63기 (2022)' },
+    ];
+    const QUARTERLY_PERIODS = [
+      { key: 'q1', label: '2025.1Q' },
+      { key: 'q2', label: '2025.2Q' },
+      { key: 'q3', label: '2025.3Q' },
+      { key: 'q4', label: '2025.4Q' },
+    ];
+    const ANNUAL_CHART_LABELS = ['2022', '2023', '2024', '2025'];
+    const QUARTERLY_CHART_LABELS = ['1Q', '2Q', '3Q', '4Q'];
+    const ANNUAL_KEYS = ['y1', 'y2', 'y3', 'y4'];
+    const QUARTERLY_KEYS = ['q1', 'q2', 'q3', 'q4'];
+
+    // ========================================
+    // Utility
+    // ========================================
+    function parseNum(str) {
+      if (!str) return 0;
+      return parseFloat(str.replace(/,/g, ''));
+    }
+    function toEok(str) {
+      return Math.round(parseNum(str) / 100000000);
+    }
+    function formatEok(str) {
+      return toEok(str).toLocaleString();
+    }
+    function calcChange(cur, prev) {
+      const c = parseNum(cur);
+      const p = parseNum(prev);
+      if (p === 0) return null;
+      return ((c - p) / Math.abs(p)) * 100;
+    }
+
+    // ========================================
+    // Page Components
+    // ========================================
+    function CompanyHeader() {
+      return (
+        <div className="fade-in mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-4">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-3xl font-bold text-white">{COMPANY.name}</h1>
+                <Badge color="indigo">{COMPANY.stockCode}</Badge>
+                <Badge color="emerald">KOSPI</Badge>
+              </div>
+              <p className="text-gray-500 text-sm">{COMPANY.nameEng}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: '대표이사', value: COMPANY.ceo },
+              { label: '업종', value: COMPANY.industry },
+              { label: '설립일', value: COMPANY.established },
+              { label: '결산월', value: COMPANY.accountMonth },
+            ].map((item, i) => (
+              <div key={i} className="bg-[#1a1a2e] rounded-xl px-4 py-3 border border-[#2a2a3d]">
+                <div className="text-gray-500 text-xs">{item.label}</div>
+                <div className="text-white text-sm font-medium mt-0.5">{item.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function SummaryStats({ data, keys }) {
+      const bs = data.BS;
+      const is = data.IS;
+      const k = keys;
+      const assets = bs.find(r => r.name === '자산총계');
+      const liabilities = bs.find(r => r.name === '부채총계');
+      const equity = bs.find(r => r.name === '자본총계');
+      const revenue = is.find(r => r.name === '매출액');
+      const opIncome = is.find(r => r.name === '영업이익');
+      const netIncome = is.find(r => r.name === '당기순이익(손실)');
+      const latest = k[k.length - 1];
+      const prev = k[k.length - 2];
+
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6 fade-in">
+          <StatCard label="자산총계" value={formatEok(assets[latest])} change={calcChange(assets[latest], assets[prev])} />
+          <StatCard label="부채총계" value={formatEok(liabilities[latest])} change={calcChange(liabilities[latest], liabilities[prev])} />
+          <StatCard label="자본총계" value={formatEok(equity[latest])} change={calcChange(equity[latest], equity[prev])} />
+          <StatCard label="매출액" value={formatEok(revenue[latest])} change={calcChange(revenue[latest], revenue[prev])} />
+          <StatCard label="영업이익" value={formatEok(opIncome[latest])} change={calcChange(opIncome[latest], opIncome[prev])} />
+          <StatCard label="당기순이익" value={formatEok(netIncome[latest])} change={calcChange(netIncome[latest], netIncome[prev])} />
+        </div>
+      );
+    }
+
+    function FinancialTable({ data, type, periods, keys }) {
+      const rows = data[type];
+      const latest = keys[keys.length - 1];
+      const prev = keys[keys.length - 2];
+      return (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#2a2a3d]">
+                <th className="text-left py-3 px-4 text-gray-400 font-medium w-48">계정과목</th>
+                {periods.map(p => (
+                  <th key={p.key} className="text-right py-3 px-4 text-gray-400 font-medium">{p.label}</th>
+                ))}
+                <th className="text-right py-3 px-4 text-gray-400 font-medium w-20">전기대비</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => {
+                const change = calcChange(row[latest], row[prev]);
+                return (
+                  <tr key={i} className={`border-b border-[#1e1e30] hover:bg-[#252540]/50 transition-colors ${row.bold ? 'bg-[#12121f]' : ''}`}>
+                    <td className={`py-2.5 px-4 ${row.bold ? 'text-white font-semibold' : 'text-gray-300'}`}
+                        style={{ paddingLeft: `${1 + row.indent * 1.5}rem` }}>
+                      {row.name}
+                    </td>
+                    {periods.map(p => {
+                      const neg = parseNum(row[p.key]) < 0;
+                      return (
+                        <td key={p.key} className={`py-2.5 px-4 text-right mono text-sm ${row.bold ? 'font-semibold' : ''} ${neg ? 'text-red-400' : p.key === latest ? 'text-white' : 'text-gray-400'}`}>
+                          {formatEok(row[p.key])}
+                        </td>
+                      );
+                    })}
+                    <td className={`py-2.5 px-4 text-right mono text-xs ${change === null ? 'text-gray-600' : change >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {change !== null ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="text-right text-gray-600 text-xs mt-2 px-4">단위: 억원 (KRW)</div>
+        </div>
+      );
+    }
+
+    function ChartSection({ data, labels, keys }) {
+      const chartRef1 = useRef(null);
+      const chartRef2 = useRef(null);
+      const chart1 = useRef(null);
+      const chart2 = useRef(null);
+
+      useEffect(() => {
+        const bs = data.BS;
+        const is = data.IS;
+
+        const assets = bs.find(r => r.name === '자산총계');
+        const liabilities = bs.find(r => r.name === '부채총계');
+        const equity = bs.find(r => r.name === '자본총계');
+
+        if (chart1.current) chart1.current.destroy();
+        chart1.current = new Chart(chartRef1.current, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: '자산총계',
+                data: keys.map(k => toEok(assets[k])),
+                backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                borderColor: 'rgba(99, 102, 241, 1)',
+                borderWidth: 1, borderRadius: 4,
+              },
+              {
+                label: '부채총계',
+                data: keys.map(k => toEok(liabilities[k])),
+                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 1, borderRadius: 4,
+              },
+              {
+                label: '자본총계',
+                data: keys.map(k => toEok(equity[k])),
+                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                borderColor: 'rgba(16, 185, 129, 1)',
+                borderWidth: 1, borderRadius: 4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { labels: { color: '#9ca3af', font: { family: 'Noto Sans KR' } } },
+              tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toLocaleString()}억원` } },
+            },
+            scales: {
+              x: { ticks: { color: '#6b7280' }, grid: { color: '#1e1e30' } },
+              y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() + '억' }, grid: { color: '#1e1e30' } },
+            },
+          },
+        });
+
+        const revenue = is.find(r => r.name === '매출액');
+        const opIncome = is.find(r => r.name === '영업이익');
+        const netIncome = is.find(r => r.name === '당기순이익(손실)');
+
+        if (chart2.current) chart2.current.destroy();
+        chart2.current = new Chart(chartRef2.current, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: '매출액',
+                data: keys.map(k => toEok(revenue[k])),
+                borderColor: 'rgba(99, 102, 241, 1)', backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                fill: true, tension: 0.3, pointRadius: 5, pointHoverRadius: 7,
+              },
+              {
+                label: '영업이익',
+                data: keys.map(k => toEok(opIncome[k])),
+                borderColor: 'rgba(245, 158, 11, 1)', backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                fill: false, tension: 0.3, pointRadius: 5, pointHoverRadius: 7,
+              },
+              {
+                label: '당기순이익',
+                data: keys.map(k => toEok(netIncome[k])),
+                borderColor: 'rgba(16, 185, 129, 1)', backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: false, tension: 0.3, pointRadius: 5, pointHoverRadius: 7, borderDash: [5, 5],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { labels: { color: '#9ca3af', font: { family: 'Noto Sans KR' } } },
+              tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.raw.toLocaleString()}억원` } },
+            },
+            scales: {
+              x: { ticks: { color: '#6b7280' }, grid: { color: '#1e1e30' } },
+              y: { ticks: { color: '#6b7280', callback: v => v.toLocaleString() + '억' }, grid: { color: '#1e1e30' } },
+            },
+          },
+        });
+
+        return () => {
+          if (chart1.current) chart1.current.destroy();
+          if (chart2.current) chart2.current.destroy();
+        };
+      }, [data, labels, keys]);
+
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          <Card title="재무상태 추이" subtitle="자산·부채·자본 (억원)">
+            <canvas ref={chartRef1}></canvas>
+          </Card>
+          <Card title="손익 추이" subtitle="매출액·영업이익·당기순이익 (억원)">
+            <canvas ref={chartRef2}></canvas>
+          </Card>
+        </div>
+      );
+    }
+
+    function RatioAnalysis({ data, keys, yearLabels }) {
+      const bs = data.BS;
+      const is = data.IS;
+
+      const get = (arr, name) => arr.find(r => r.name === name);
+      const val = (row, key) => parseNum(row[key]);
+
+      const assets = get(bs, '자산총계');
+      const liabilities = get(bs, '부채총계');
+      const equity = get(bs, '자본총계');
+      const curAssets = get(bs, '유동자산');
+      const curLiab = get(bs, '유동부채');
+      const revenue = get(is, '매출액');
+      const opIncome = get(is, '영업이익');
+      const netIncome = get(is, '당기순이익(손실)');
+
+      const displayKeys = [...keys].reverse();
+      const displayLabels = [...yearLabels].reverse();
+
+      const ratios = [
+        {
+          name: '부채비율',
+          desc: '부채총계 / 자본총계 × 100',
+          values: displayKeys.map(y => ((val(liabilities, y) / val(equity, y)) * 100).toFixed(1)),
+          unit: '%',
+        },
+        {
+          name: '유동비율',
+          desc: '유동자산 / 유동부채 × 100',
+          values: displayKeys.map(y => ((val(curAssets, y) / val(curLiab, y)) * 100).toFixed(1)),
+          unit: '%',
+        },
+        {
+          name: '영업이익률',
+          desc: '영업이익 / 매출액 × 100',
+          values: displayKeys.map(y => ((val(opIncome, y) / val(revenue, y)) * 100).toFixed(1)),
+          unit: '%',
+        },
+        {
+          name: '순이익률',
+          desc: '당기순이익 / 매출액 × 100',
+          values: displayKeys.map(y => ((val(netIncome, y) / val(revenue, y)) * 100).toFixed(1)),
+          unit: '%',
+        },
+        {
+          name: 'ROE',
+          desc: '당기순이익 / 자본총계 × 100',
+          values: displayKeys.map(y => ((val(netIncome, y) / val(equity, y)) * 100).toFixed(1)),
+          unit: '%',
+        },
+        {
+          name: 'ROA',
+          desc: '당기순이익 / 자산총계 × 100',
+          values: displayKeys.map(y => ((val(netIncome, y) / val(assets, y)) * 100).toFixed(1)),
+          unit: '%',
+        },
+      ];
+
+      return (
+        <Card title="주요 재무비율" subtitle="연결재무제표 기준" className="mb-6">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#2a2a3d]">
+                  <th className="text-left py-3 px-4 text-gray-400 font-medium">지표</th>
+                  <th className="text-left py-3 px-4 text-gray-500 font-normal text-xs hidden sm:table-cell">산식</th>
+                  {displayLabels.map(y => (
+                    <th key={y} className="text-right py-3 px-4 text-gray-400 font-medium">{y}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {ratios.map((r, i) => (
+                  <tr key={i} className="border-b border-[#1e1e30] hover:bg-[#252540]/50 transition-colors">
+                    <td className="py-2.5 px-4 text-white font-medium">{r.name}</td>
+                    <td className="py-2.5 px-4 text-gray-600 text-xs hidden sm:table-cell">{r.desc}</td>
+                    {r.values.map((v, j) => {
+                      const neg = parseFloat(v) < 0;
+                      return (
+                        <td key={j} className={`py-2.5 px-4 text-right mono ${j === 0 ? 'text-white font-semibold' : 'text-gray-400'} ${neg ? 'text-red-400' : ''}`}>
+                          {v}{r.unit}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      );
+    }
+
+    // ========================================
+    // App
+    // ========================================
+    function App() {
+      const [fsType, setFsType] = useState('CFS');
+      const [periodType, setPeriodType] = useState('annual');
+      const [tableType, setTableType] = useState('BS');
+
+      const isAnnual = periodType === 'annual';
+      const data = useMemo(() => {
+        if (fsType === 'CFS') return isAnnual ? CFS_ANNUAL : CFS_QUARTERLY;
+        return isAnnual ? OFS_ANNUAL : OFS_QUARTERLY;
+      }, [fsType, isAnnual]);
+
+      const keys = isAnnual ? ANNUAL_KEYS : QUARTERLY_KEYS;
+      const chartLabels = isAnnual ? ANNUAL_CHART_LABELS : QUARTERLY_CHART_LABELS;
+      const tablePeriods = isAnnual
+        ? (tableType === 'BS' ? ANNUAL_PERIODS_BS : ANNUAL_PERIODS_IS)
+        : QUARTERLY_PERIODS;
+
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <CompanyHeader />
+
+          {/* 탭: 연결/별도 + 연간/분기 */}
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <span className="text-gray-500 text-sm">재무제표:</span>
+            <TabButton active={fsType === 'CFS'} onClick={() => setFsType('CFS')}>연결</TabButton>
+            <TabButton active={fsType === 'OFS'} onClick={() => setFsType('OFS')}>별도</TabButton>
+            <span className="text-gray-700 mx-1">|</span>
+            <span className="text-gray-500 text-sm">기간:</span>
+            <TabButton active={periodType === 'annual'} onClick={() => setPeriodType('annual')}>연간</TabButton>
+            <TabButton active={periodType === 'quarterly'} onClick={() => setPeriodType('quarterly')}>분기 (2025)</TabButton>
+          </div>
+
+          <SummaryStats data={data} keys={keys} />
+
+          <ChartSection data={data} labels={chartLabels} keys={keys} />
+
+          {fsType === 'CFS' && isAnnual && (
+            <RatioAnalysis data={data} keys={keys} yearLabels={ANNUAL_CHART_LABELS} />
+          )}
+
+          <Card
+            title={tableType === 'BS' ? '재무상태표' : '손익계산서'}
+            subtitle={`${fsType === 'CFS' ? '연결' : '별도'}재무제표 · ${isAnnual ? '사업보고서' : '2025년 분기보고서'} 기준`}
+            headerRight={
+              <div className="flex gap-2">
+                <TabButton active={tableType === 'BS'} onClick={() => setTableType('BS')}>재무상태표</TabButton>
+                <TabButton active={tableType === 'IS'} onClick={() => setTableType('IS')}>손익계산서</TabButton>
+              </div>
+            }
+          >
+            <FinancialTable data={data} type={tableType} periods={tablePeriods} keys={keys} />
+          </Card>
+
+          <div className="text-center mt-8 text-gray-600 text-xs space-y-1">
+            <p>출처: DART 전자공시시스템 (dart.fss.or.kr) · 사업보고서/분기보고서 요약재무제표</p>
+            <p>본 자료는 참고용이며, 투자 판단의 근거로 사용될 수 없습니다.</p>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

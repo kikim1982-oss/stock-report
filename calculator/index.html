@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공학용 계산기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .btn-press { transition: all 0.1s ease; }
+    .btn-press:active { transform: scale(0.93); }
+    .slide-in { animation: slideIn 0.25s ease-out; }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .fade-in { animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1e1e2e; }
+    ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-[#0f0f1a] min-h-screen flex items-center justify-center p-4">
+  <div id="root"></div>
+  <script type="text/babel">
+    // ========================================
+    // 1. React Hooks Destructuring
+    // ========================================
+    const { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } = React;
+
+    // ========================================
+    // 2. 🎨 Design System Components
+    // ========================================
+    function CalcButton({ children, onClick, className = '', variant = 'default', span = 1 }) {
+      const base = 'btn-press rounded-xl font-medium flex items-center justify-center select-none cursor-pointer transition-colors duration-150';
+      const sizes = 'h-14 sm:h-16 text-sm sm:text-base';
+      const variants = {
+        default: 'bg-[#2a2a3d] hover:bg-[#353550] text-gray-200',
+        number: 'bg-[#1e1e30] hover:bg-[#2a2a40] text-white font-semibold text-base sm:text-lg',
+        operator: 'bg-[#3b3b5c] hover:bg-[#4a4a6a] text-indigo-300 font-semibold',
+        function: 'bg-[#1a1a2e] hover:bg-[#252540] text-emerald-400 text-xs sm:text-sm',
+        equals: 'bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-lg',
+        danger: 'bg-red-900/40 hover:bg-red-800/50 text-red-400',
+        memory: 'bg-[#1a1a2e] hover:bg-[#252540] text-amber-400 text-xs sm:text-sm',
+      };
+      const spanClass = span === 2 ? 'col-span-2' : '';
+      return (
+        <button
+          onClick={onClick}
+          className={`${base} ${sizes} ${variants[variant]} ${spanClass} ${className}`}
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function Display({ expression, result, memory, angleMode }) {
+      return (
+        <div className="bg-[#12121f] rounded-2xl p-4 sm:p-5 mb-4 border border-[#2a2a3d] relative overflow-hidden">
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex gap-2">
+              {memory !== 0 && (
+                <span className="text-amber-400 text-xs bg-amber-400/10 px-2 py-0.5 rounded-full">M</span>
+              )}
+              <span className={`text-xs px-2 py-0.5 rounded-full ${angleMode === 'DEG' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                {angleMode}
+              </span>
+            </div>
+          </div>
+          <div className="mono text-right text-gray-400 text-sm sm:text-base h-7 overflow-x-auto whitespace-nowrap scrollbar-thin">
+            {expression || '\u00A0'}
+          </div>
+          <div className="mono text-right text-white text-3xl sm:text-4xl font-bold mt-1 overflow-x-auto whitespace-nowrap">
+            {result}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 3. 🧩 Common/Layout Components
+    // ========================================
+    function HistoryPanel({ history, onClose, onSelect, onClear }) {
+      return (
+        <div className="slide-in fixed inset-0 sm:absolute sm:inset-auto sm:right-0 sm:top-0 sm:w-80 sm:h-full bg-[#12121f] sm:rounded-2xl border border-[#2a2a3d] z-50 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-[#2a2a3d]">
+            <h3 className="text-white font-semibold">계산 기록</h3>
+            <div className="flex gap-2">
+              <button onClick={onClear} className="text-red-400 hover:text-red-300 text-sm px-2 py-1 rounded hover:bg-red-900/20 transition-colors">
+                전체삭제
+              </button>
+              <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none px-2 transition-colors">
+                ✕
+              </button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+            {history.length === 0 ? (
+              <div className="text-gray-500 text-center mt-10 text-sm">기록이 없습니다</div>
+            ) : (
+              history.map((item, i) => (
+                <button
+                  key={i}
+                  onClick={() => onSelect(item.result)}
+                  className="fade-in w-full text-right p-3 rounded-xl bg-[#1a1a2e] hover:bg-[#252540] transition-colors cursor-pointer"
+                >
+                  <div className="mono text-gray-400 text-xs truncate">{item.expression}</div>
+                  <div className="mono text-white text-lg font-semibold">= {item.result}</div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 4. 📄 Calculator Logic & Page Components
+    // ========================================
+    function factorial(n) {
+      if (n < 0) return NaN;
+      if (n === 0 || n === 1) return 1;
+      if (n > 170) return Infinity;
+      if (!Number.isInteger(n)) return NaN;
+      let result = 1;
+      for (let i = 2; i <= n; i++) result *= i;
+      return result;
+    }
+
+    function formatNumber(num) {
+      if (typeof num === 'string') return num;
+      if (isNaN(num)) return '오류';
+      if (!isFinite(num)) return num > 0 ? '∞' : '-∞';
+      if (Number.isInteger(num) && Math.abs(num) < 1e15) return num.toLocaleString();
+      const str = num.toPrecision(12);
+      return parseFloat(str).toString();
+    }
+
+    function Calculator() {
+      const [display, setDisplay] = useState('0');
+      const [expression, setExpression] = useState('');
+      const [prevResult, setPrevResult] = useState(null);
+      const [newNumber, setNewNumber] = useState(true);
+      const [memory, setMemory] = useState(0);
+      const [angleMode, setAngleMode] = useState('DEG');
+      const [showScientific, setShowScientific] = useState(true);
+      const [history, setHistory] = useState([]);
+      const [showHistory, setShowHistory] = useState(false);
+      const [secondFn, setSecondFn] = useState(false);
+
+      const toAngle = useCallback((val) => angleMode === 'DEG' ? val * Math.PI / 180 : val, [angleMode]);
+      const fromAngle = useCallback((val) => angleMode === 'DEG' ? val * 180 / Math.PI : val, [angleMode]);
+
+      const currentNum = useCallback(() => parseFloat(display.replace(/,/g, '')), [display]);
+
+      const pushHistory = useCallback((expr, res) => {
+        setHistory(prev => [{ expression: expr, result: formatNumber(res) }, ...prev].slice(0, 50));
+      }, []);
+
+      const inputDigit = useCallback((d) => {
+        if (newNumber) {
+          setDisplay(d === '.' ? '0.' : d);
+          setNewNumber(false);
+        } else {
+          if (d === '.' && display.includes('.')) return;
+          setDisplay(prev => prev === '0' && d !== '.' ? d : prev + d);
+        }
+      }, [newNumber, display]);
+
+      const inputOperator = useCallback((op) => {
+        const num = currentNum();
+        const opSymbol = { '+': ' + ', '-': ' − ', '*': ' × ', '/': ' ÷ ' }[op] || ` ${op} `;
+        if (prevResult !== null && !newNumber) {
+          let res;
+          try {
+            const prev = prevResult.op;
+            const a = prevResult.value;
+            res = prev === '+' ? a + num : prev === '-' ? a - num : prev === '*' ? a * num : prev === '/' ? (num === 0 ? NaN : a / num) : num;
+          } catch { res = NaN; }
+          setDisplay(formatNumber(res));
+          setExpression(formatNumber(res) + opSymbol);
+          setPrevResult({ value: res, op });
+        } else {
+          setExpression(display + opSymbol);
+          setPrevResult({ value: num, op });
+        }
+        setNewNumber(true);
+      }, [currentNum, display, newNumber, prevResult]);
+
+      const calculate = useCallback(() => {
+        if (prevResult === null) return;
+        const num = currentNum();
+        const { value: a, op } = prevResult;
+        let res;
+        try {
+          res = op === '+' ? a + num : op === '-' ? a - num : op === '*' ? a * num : op === '/' ? (num === 0 ? NaN : a / num) : num;
+        } catch { res = NaN; }
+        const opSymbol = { '+': ' + ', '-': ' − ', '*': ' × ', '/': ' ÷ ' }[op] || ` ${op} `;
+        const fullExpr = formatNumber(a) + opSymbol + display;
+        pushHistory(fullExpr, res);
+        setDisplay(formatNumber(res));
+        setExpression(fullExpr + ' =');
+        setPrevResult(null);
+        setNewNumber(true);
+      }, [currentNum, display, prevResult, pushHistory]);
+
+      const clear = useCallback(() => {
+        setDisplay('0');
+        setExpression('');
+        setPrevResult(null);
+        setNewNumber(true);
+      }, []);
+
+      const clearEntry = useCallback(() => {
+        setDisplay('0');
+        setNewNumber(true);
+      }, []);
+
+      const backspace = useCallback(() => {
+        if (newNumber) return;
+        setDisplay(prev => prev.length <= 1 ? '0' : prev.slice(0, -1));
+      }, [newNumber]);
+
+      const toggleSign = useCallback(() => {
+        setDisplay(prev => {
+          const n = parseFloat(prev.replace(/,/g, ''));
+          return formatNumber(-n);
+        });
+      }, []);
+
+      const percent = useCallback(() => {
+        setDisplay(prev => formatNumber(parseFloat(prev.replace(/,/g, '')) / 100));
+        setNewNumber(true);
+      }, []);
+
+      const applyUnary = useCallback((fn, label) => {
+        const num = currentNum();
+        let res;
+        try { res = fn(num); } catch { res = NaN; }
+        const expr = `${label}(${display})`;
+        pushHistory(expr, res);
+        setDisplay(formatNumber(res));
+        setExpression(expr);
+        setNewNumber(true);
+      }, [currentNum, display, pushHistory]);
+
+      const scientificFn = useCallback((name) => {
+        const num = currentNum();
+        switch (name) {
+          case 'sin': return applyUnary(v => Math.sin(toAngle(v)), 'sin');
+          case 'cos': return applyUnary(v => Math.cos(toAngle(v)), 'cos');
+          case 'tan': return applyUnary(v => Math.tan(toAngle(v)), 'tan');
+          case 'asin': return applyUnary(v => fromAngle(Math.asin(v)), 'sin⁻¹');
+          case 'acos': return applyUnary(v => fromAngle(Math.acos(v)), 'cos⁻¹');
+          case 'atan': return applyUnary(v => fromAngle(Math.atan(v)), 'tan⁻¹');
+          case 'log': return applyUnary(Math.log10, 'log');
+          case 'ln': return applyUnary(Math.log, 'ln');
+          case 'sqrt': return applyUnary(Math.sqrt, '√');
+          case 'cbrt': return applyUnary(Math.cbrt, '∛');
+          case 'x2': return applyUnary(v => v * v, 'sqr');
+          case 'x3': return applyUnary(v => v * v * v, 'cube');
+          case '10x': return applyUnary(v => Math.pow(10, v), '10^');
+          case 'ex': return applyUnary(v => Math.exp(v), 'e^');
+          case '1/x': return applyUnary(v => 1 / v, '1/');
+          case 'abs': return applyUnary(Math.abs, '|x|');
+          case 'fact': return applyUnary(factorial, '!');
+          case 'pi': setDisplay(formatNumber(Math.PI)); setExpression('π'); setNewNumber(true); return;
+          case 'e': setDisplay(formatNumber(Math.E)); setExpression('e'); setNewNumber(true); return;
+          case 'pow': return inputOperator('^');
+          case 'mod': return inputOperator('%');
+          default: return;
+        }
+      }, [currentNum, applyUnary, toAngle, fromAngle, inputOperator]);
+
+      // Keyboard support
+      useEffect(() => {
+        const handler = (e) => {
+          if (e.target.tagName === 'INPUT') return;
+          const key = e.key;
+          if (key >= '0' && key <= '9') { e.preventDefault(); inputDigit(key); }
+          else if (key === '.') { e.preventDefault(); inputDigit('.'); }
+          else if (key === '+') { e.preventDefault(); inputOperator('+'); }
+          else if (key === '-') { e.preventDefault(); inputOperator('-'); }
+          else if (key === '*') { e.preventDefault(); inputOperator('*'); }
+          else if (key === '/') { e.preventDefault(); inputOperator('/'); }
+          else if (key === 'Enter' || key === '=') { e.preventDefault(); calculate(); }
+          else if (key === 'Escape') { e.preventDefault(); clear(); }
+          else if (key === 'Backspace') { e.preventDefault(); backspace(); }
+          else if (key === '%') { e.preventDefault(); percent(); }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+      }, [inputDigit, inputOperator, calculate, clear, backspace, percent]);
+
+      // ========================================
+      // 렌더링
+      // ========================================
+      return (
+        <div className="relative w-full max-w-md mx-auto">
+          {/* 헤더 */}
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-white text-lg font-semibold tracking-tight">공학용 계산기</h1>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowScientific(p => !p)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${showScientific ? 'bg-indigo-600 text-white' : 'bg-[#2a2a3d] text-gray-400 hover:text-white'}`}
+              >
+                {showScientific ? '공학' : '표준'}
+              </button>
+              <button
+                onClick={() => setShowHistory(true)}
+                className="bg-[#2a2a3d] hover:bg-[#353550] text-gray-400 hover:text-white px-3 py-1 rounded-lg text-xs transition-colors"
+              >
+                기록
+              </button>
+            </div>
+          </div>
+
+          {/* 디스플레이 */}
+          <Display expression={expression} result={display} memory={memory} angleMode={angleMode} />
+
+          {/* 공학 함수 패드 */}
+          {showScientific && (
+            <div className="grid grid-cols-5 gap-1.5 mb-2 fade-in">
+              <CalcButton variant="function" onClick={() => setSecondFn(p => !p)}>
+                <span className={secondFn ? 'text-indigo-400 font-bold' : ''}>2nd</span>
+              </CalcButton>
+              <CalcButton variant="function" onClick={() => setAngleMode(p => p === 'DEG' ? 'RAD' : 'DEG')}>
+                {angleMode}
+              </CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn(secondFn ? 'asin' : 'sin')}>
+                {secondFn ? 'sin⁻¹' : 'sin'}
+              </CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn(secondFn ? 'acos' : 'cos')}>
+                {secondFn ? 'cos⁻¹' : 'cos'}
+              </CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn(secondFn ? 'atan' : 'tan')}>
+                {secondFn ? 'tan⁻¹' : 'tan'}
+              </CalcButton>
+
+              <CalcButton variant="function" onClick={() => scientificFn('x2')}>x²</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn(secondFn ? 'x3' : 'pow')}>
+                {secondFn ? 'x³' : 'xⁿ'}
+              </CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn('log')}>log</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn('ln')}>ln</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn(secondFn ? 'ex' : '10x')}>
+                {secondFn ? 'eˣ' : '10ˣ'}
+              </CalcButton>
+
+              <CalcButton variant="function" onClick={() => scientificFn('sqrt')}>√x</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn(secondFn ? 'cbrt' : 'abs')}>
+                {secondFn ? '∛x' : '|x|'}
+              </CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn('1/x')}>1/x</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn('pi')}>π</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn('e')}>e</CalcButton>
+
+              {/* 메모리 */}
+              <CalcButton variant="memory" onClick={() => setMemory(0)}>MC</CalcButton>
+              <CalcButton variant="memory" onClick={() => { setDisplay(formatNumber(memory)); setNewNumber(true); }}>MR</CalcButton>
+              <CalcButton variant="memory" onClick={() => setMemory(p => p + currentNum())}>M+</CalcButton>
+              <CalcButton variant="memory" onClick={() => setMemory(p => p - currentNum())}>M−</CalcButton>
+              <CalcButton variant="function" onClick={() => scientificFn('fact')}>n!</CalcButton>
+            </div>
+          )}
+
+          {/* 기본 패드 */}
+          <div className="grid grid-cols-4 gap-1.5">
+            <CalcButton variant="danger" onClick={clear}>C</CalcButton>
+            <CalcButton variant="danger" onClick={clearEntry}>CE</CalcButton>
+            <CalcButton variant="default" onClick={backspace}>⌫</CalcButton>
+            <CalcButton variant="operator" onClick={() => inputOperator('/')}>÷</CalcButton>
+
+            <CalcButton variant="number" onClick={() => inputDigit('7')}>7</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('8')}>8</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('9')}>9</CalcButton>
+            <CalcButton variant="operator" onClick={() => inputOperator('*')}>×</CalcButton>
+
+            <CalcButton variant="number" onClick={() => inputDigit('4')}>4</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('5')}>5</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('6')}>6</CalcButton>
+            <CalcButton variant="operator" onClick={() => inputOperator('-')}>−</CalcButton>
+
+            <CalcButton variant="number" onClick={() => inputDigit('1')}>1</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('2')}>2</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('3')}>3</CalcButton>
+            <CalcButton variant="operator" onClick={() => inputOperator('+')}>+</CalcButton>
+
+            <CalcButton variant="default" onClick={toggleSign}>±</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('0')}>0</CalcButton>
+            <CalcButton variant="number" onClick={() => inputDigit('.')}>.</CalcButton>
+            <CalcButton variant="equals" onClick={calculate}>=</CalcButton>
+          </div>
+
+          {/* 기록 패널 */}
+          {showHistory && (
+            <HistoryPanel
+              history={history}
+              onClose={() => setShowHistory(false)}
+              onSelect={(val) => { setDisplay(val); setNewNumber(true); setShowHistory(false); }}
+              onClear={() => setHistory([])}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ========================================
+    // 5. 🚀 App Component
+    // ========================================
+    function App() {
+      return (
+        <div className="w-full max-w-md mx-auto">
+          <Calculator />
+          <div className="text-center mt-4 text-gray-600 text-xs">
+            키보드 입력 지원 · 0-9, +, -, *, /, Enter, Esc, Backspace
+          </div>
+        </div>
+      );
+    }
+
+    // ========================================
+    // 6. Rendering
+    // ========================================
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
